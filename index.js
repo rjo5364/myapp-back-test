@@ -446,8 +446,8 @@ app.get('/logout', (req, res) => {
   });
 });
 
-const projectTaskRoutes = require('./projectTaskRoutes');
-app.use('/api', projectTaskRoutes);
+const { router: projectTaskRouter } = require('./projectTaskRoutes');
+app.use('/api', projectTaskRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
