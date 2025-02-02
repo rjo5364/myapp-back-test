@@ -12,6 +12,7 @@ require('dotenv').config();
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
+app.use(express.json());
 
 // Important: Add trust proxy setting for Render.com
 app.set('trust proxy', 1);
@@ -444,6 +445,9 @@ app.get('/logout', (req, res) => {
     });
   });
 });
+
+const projectTaskRoutes = require('./projectTaskRoutes');
+app.use('/api', projectTaskRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
