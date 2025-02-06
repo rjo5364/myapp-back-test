@@ -8,8 +8,8 @@ const axios = require('axios');
 const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
-
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const GitHubStrategy = require('passport-github').Strategy;
 
 const app = express();
 app.use(express.json());
@@ -92,8 +92,8 @@ app.use(
       secure: true,
       sameSite: 'none',
       maxAge: 24 * 60 * 60 * 1000,
-     // domain: process.env.COOKIE_DOMAIN,
-     // path: '/'
+      // domain: process.env.COOKIE_DOMAIN,
+      // path: '/'
     }
   })
 );
@@ -157,7 +157,6 @@ passport.use(
       try {
         console.log('Google profile:', profile);
         let user = await User.findOne({ socialId: profile.id });
-
         if (!user) {
           user = new User({
             socialId: profile.id,
@@ -170,7 +169,41 @@ passport.use(
         } else {
           user.lastLogin = new Date();
         }
+        await user.save();
+        return done(null, user);
+      } catch (err) {
+        console.error('Error saving user:', err);
+        return done(err, null);
+      }
+    }
+  )
+);
 
+// GitHub Strategy
+passport.use(
+  new GitHubStrategy(
+    {
+      clientID: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      callbackURL: `${process.env.BASE_URL}/auth/github/callback`,
+      scope: ['user:email']
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        console.log('GitHub profile:', profile);
+        let user = await User.findOne({ socialId: profile.id });
+        if (!user) {
+          user = new User({
+            socialId: profile.id,
+            name: profile.displayName,
+            email: profile.emails[0].value,
+            platform: 'github',
+            profilePicture: profile.photos[0]?.value || '',
+            lastLogin: new Date()
+          });
+        } else {
+          user.lastLogin = new Date();
+        }
         await user.save();
         return done(null, user);
       } catch (err) {
@@ -230,182 +263,32 @@ app.get(
   }
 );
 
-// const crypto = require('crypto'); // Add this at the top with other imports
+// GitHub Routes
+app.get(
+  '/auth/github',
+  passport.authenticate('github', { scope: ['user:email'] })
+);
 
-// Replace the existing LinkedIn routes with these:
-
-// app.get('/auth/linkedin', async (req, res) => {
-//   try {
-//     // Generate a more secure state parameter
-//     const state = crypto.randomBytes(16).toString('hex');
+app.get(
+  '/auth/github/callback',
+  passport.authenticate('github', { 
+    failureRedirect: '/',
+    failureMessage: true 
+  }),
+  (req, res) => {
+    console.log('GitHub authentication successful');
+    console.log('Session after auth:', req.session);
+    console.log('User after auth:', req.user);
     
-//     // Save state in session
-//     req.session.linkedInState = state;
-//     console.log('Setting LinkedIn state:', {
-//       state,
-//       sessionID: req.sessionID,
-//     });
-
-//     // Explicitly save session
-//     await new Promise((resolve, reject) => {
-//       req.session.save((err) => {
-//         if (err) {
-//           console.error('Session save error:', err);
-//           reject(err);
-//         } else {
-//           console.log('Session saved successfully');
-//           resolve();
-//         }
-//       });
-//     });
-
-//     // Verify state was saved
-//     const verifySession = await sessionStore.get(req.sessionID);
-//     console.log('Verified session state:', {
-//       sessionID: req.sessionID,
-//       savedState: verifySession?.linkedInState,
-//       state: state
-//     });
-
-//     const queryParams = new URLSearchParams({
-//       response_type: 'code',
-//       client_id: process.env.LINKEDIN_CLIENT_ID,
-//       redirect_uri: process.env.LINKEDIN_REDIRECT_URI,
-//       state: state,
-//       scope: 'openid profile email r_liteprofile r_emailaddress'
-//     });
-
-//     const authURL = `https://www.linkedin.com/oauth/v2/authorization?${queryParams}`;
-//     console.log('LinkedIn Auth URL:', {
-//       url: authURL,
-//       state: state,
-//       redirectUri: process.env.LINKEDIN_REDIRECT_URI
-//     });
-
-//     res.redirect(authURL);
-//   } catch (err) {
-//     console.error('LinkedIn auth initialization error:', err);
-//     res.redirect(`${process.env.FRONTEND_URL}?error=auth_init_failed`);
-//   }
-// });
-
-// app.get('/auth/linkedin/callback', async (req, res) => {
-//   try {
-//     const { code, state, error, error_description } = req.query;
-
-//     console.log('LinkedIn callback received:', {
-//       query: req.query,
-//       sessionState: req.session?.linkedInState,
-//       sessionID: req.sessionID
-//     });
-
-//     // Handle LinkedIn OAuth errors
-//     if (error) {
-//       console.error('LinkedIn OAuth error:', { error, error_description });
-//       return res.redirect(
-//         `${process.env.FRONTEND_URL}?error=${error}&description=${encodeURIComponent(error_description || '')}`
-//       );
-//     }
-
-//     // Verify session exists
-//     const verifySession = await sessionStore.get(req.sessionID);
-//     if (!verifySession) {
-//       console.error('No session found in LinkedIn callback');
-//       return res.redirect(`${process.env.FRONTEND_URL}?error=no_session`);
-//     }
-
-//     // Verify state parameter to prevent CSRF
-//     if (state !== verifySession.linkedInState) {
-//       console.error('State mismatch:', {
-//         expected: verifySession.linkedInState,
-//         received: state,
-//         sessionID: req.sessionID
-//       });
-//       return res.redirect(`${process.env.FRONTEND_URL}?error=invalid_state`);
-//     }
-
-//     // Exchange code for access token
-//     const tokenResponse = await axios({
-//       method: 'POST',
-//       url: 'https://www.linkedin.com/oauth/v2/accessToken',
-//       headers: {
-//         'Content-Type': 'application/x-www-form-urlencoded'
-//       },
-//       data: new URLSearchParams({
-//         grant_type: 'authorization_code',
-//         code: code,
-//         redirect_uri: process.env.LINKEDIN_REDIRECT_URI,
-//         client_id: process.env.LINKEDIN_CLIENT_ID,
-//         client_secret: process.env.LINKEDIN_CLIENT_SECRET
-//       }).toString()
-//     });
-
-//     console.log('LinkedIn token response:', tokenResponse.data);
-//     const accessToken = tokenResponse.data.access_token;
-
-//     // Get user info using v2 API
-//     const userInfoResponse = await axios.get('https://api.linkedin.com/v2/userinfo', {
-//       headers: {
-//         'Authorization': `Bearer ${accessToken}`,
-//         'X-Restli-Protocol-Version': '2.0.0'
-//       }
-//     });
-
-//     const profileData = userInfoResponse.data;
-//     console.log('LinkedIn user info:', profileData);
-
-//     // Create or update user
-//     let user = await User.findOne({
-//       socialId: profileData.sub,
-//       platform: 'linkedin'
-//     });
-
-//     if (!user) {
-//       user = new User({
-//         socialId: profileData.sub,
-//         name: profileData.name,
-//         email: profileData.email,
-//         platform: 'linkedin',
-//         profilePicture: profileData.picture || '',
-//         lastLogin: new Date()
-//       });
-//     } else {
-//       user.lastLogin = new Date();
-//       user.name = profileData.name;
-//       user.email = profileData.email;
-//       user.profilePicture = profileData.picture || user.profilePicture;
-//     }
-
-//     await user.save();
-//     console.log('User saved:', user);
-
-//     // Login and create session
-//     req.login(user, (err) => {
-//       if (err) {
-//         console.error('Login error:', err);
-//         return res.redirect(`${process.env.FRONTEND_URL}?error=login_failed`);
-//       }
-
-//       req.session.save((err) => {
-//         if (err) {
-//           console.error('Session save error:', err);
-//           return res.redirect(`${process.env.FRONTEND_URL}?error=session_error`);
-//         }
-
-//         // Clear the LinkedIn state from session after successful auth
-//         delete req.session.linkedInState;
-//         console.log('LinkedIn authentication successful');
-//         res.redirect(`${process.env.FRONTEND_URL}/profile`);
-//       });
-//     });
-
-//   } catch (err) {
-//     console.error('LinkedIn auth error:', err.response?.data || err);
-//     res.redirect(
-//       `${process.env.FRONTEND_URL}?error=auth_failed&description=${encodeURIComponent(err.message)}`
-//     );
-//   }
-// });
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect(`${process.env.FRONTEND_URL}?error=session_error`);
+      }
+      res.redirect(`${process.env.FRONTEND_URL}/profile`);
+    });
+  }
+);
 
 app.get('/profile', (req, res) => {
   console.log('Profile request received. Authenticated:', req.isAuthenticated());
@@ -414,7 +297,6 @@ app.get('/profile', (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-
   res.json({
     name: req.user.name,
     email: req.user.email,
