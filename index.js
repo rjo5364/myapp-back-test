@@ -8,8 +8,10 @@ const axios = require('axios');
 const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
+//dependency for google oauth
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const GitHubStrategy = require('passport-github').Strategy;
+//dependency for github oauth
+const GitHubStrategy = require('passport-github2').Strategy;
 
 const app = express();
 app.use(express.json());
