@@ -4,33 +4,38 @@ const mongoose = require('mongoose');
 
 const Schema = mongoose.Schema;
 
-//mongo atlas Schema for Projects
+// MongoDB Schema for Projects
 const projectSchema = new Schema({
   name: { type: String, required: true },
   description: String,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }  // Reference to User's _id
 }, { timestamps: true });
 
 const Project = mongoose.model('Project', projectSchema);
 
-// mongo atlas Schema for Tasks
+// MongoDB Schema for Tasks
 const taskSchema = new Schema({
   project: { type: Schema.Types.ObjectId, ref: 'Project', required: true },
   name: { type: String, required: true },
   description: String,
   duration: Number,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }  // Reference to User's _id
 }, { timestamps: true });
 
 const Task = mongoose.model('Task', taskSchema);
 
 
-// CREATE a new project
+// CREATE a new project (with owner linked to authenticated user)
 router.post('/projects', async (req, res) => {
   try {
-    const project = new Project(req.body);
+    const project = new Project({
+      ...req.body,
+      owner: req.user._id  // Attach the logged-in user's _id as the project owner
+    });
     const savedProject = await project.save();
     res.status(201).json(savedProject);
   } catch (err) {
@@ -39,10 +44,11 @@ router.post('/projects', async (req, res) => {
   }
 });
 
-// READ - Return all projects
+// READ - Return all projects (filter by owner if user is authenticated, otherwise return all)
 router.get('/projects', async (req, res) => {
   try {
-    const projects = await Project.find();
+    const filter = req.user ? { owner: req.user._id } : {};  // If user is authenticated, filter by owner
+    const projects = await Project.find(filter);
     res.json(projects);
   } catch (err) {
     console.error('Error fetching projects:', err);
@@ -62,15 +68,15 @@ router.get('/projects/:id', async (req, res) => {
   }
 });
 
-// UPDATE - Project by ID
+// UPDATE - Project by ID (only if it belongs to the logged-in user)
 router.put('/projects/:id', async (req, res) => {
   try {
-    const updatedProject = await Project.findByIdAndUpdate(
-      req.params.id,
+    const updatedProject = await Project.findOneAndUpdate(
+      { _id: req.params.id, owner: req.user._id },  // Ensure the project belongs to the user
       req.body,
       { new: true, runValidators: true }
     );
-    if (!updatedProject) return res.status(404).json({ error: 'Project not found' });
+    if (!updatedProject) return res.status(404).json({ error: 'Project not found or you do not own this project' });
     res.json(updatedProject);
   } catch (err) {
     console.error('Error updating project:', err);
@@ -78,12 +84,11 @@ router.put('/projects/:id', async (req, res) => {
   }
 });
 
-// DELETE a project by ID
+// DELETE a project by ID (only if it belongs to the logged-in user)
 router.delete('/projects/:id', async (req, res) => {
   try {
-    const deletedProject = await Project.findByIdAndDelete(req.params.id);
-    if (!deletedProject) return res.status(404).json({ error: 'Project not found' });
-    // Delete all tasks associated with the project
+    const deletedProject = await Project.findOneAndDelete({ _id: req.params.id, owner: req.user._id });
+    if (!deletedProject) return res.status(404).json({ error: 'Project not found or you do not own this project' });
     await Task.deleteMany({ project: req.params.id });
     res.json({ message: 'Project and associated tasks deleted successfully' });
   } catch (err) {
@@ -93,23 +98,31 @@ router.delete('/projects/:id', async (req, res) => {
 });
 
 
-// CREATE a new task with project id validation
+// CREATE a new task with project ID and owner (linked to authenticated user)
 router.post('/tasks', async (req, res) => {
   try {
     const { project, name, description, duration, startDate, endDate } = req.body;
-    
-    // Validate the project id 
+
     if (!mongoose.Types.ObjectId.isValid(project)) {
       return res.status(400).json({ error: 'Invalid project id' });
     }
-    
-    // Check that the project exists
-    const parentProject = await Project.findById(project);
+
+    // Check if the project belongs to the logged-in user
+    const parentProject = await Project.findOne({ _id: project, owner: req.user._id });
     if (!parentProject) {
-      return res.status(404).json({ error: 'Parent project not found' });
+      return res.status(404).json({ error: 'Parent project not found or you do not own this project' });
     }
-    
-    const task = new Task({ project, name, description, duration, startDate, endDate });
+
+    const task = new Task({
+      project,
+      name,
+      description,
+      duration,
+      startDate,
+      endDate,
+      owner: req.user._id  // Attach logged-in user's _id as the task owner
+    });
+
     const savedTask = await task.save();
     res.status(201).json(savedTask);
   } catch (err) {
@@ -118,12 +131,12 @@ router.post('/tasks', async (req, res) => {
   }
 });
 
-// READ all tasks
+// READ all tasks (filter by owner if user is authenticated, otherwise return all tasks)
 router.get('/tasks', async (req, res) => {
   try {
-    const filter = {};
+    const filter = req.user ? { owner: req.user._id } : {};  // If user is authenticated, filter by owner
     if (req.query.project) {
-      filter.project = req.query.project;
+      filter.project = req.query.project;  // Optional: filter by project ID
     }
     const tasks = await Task.find(filter).populate('project', 'name');
     res.json(tasks);
@@ -136,8 +149,8 @@ router.get('/tasks', async (req, res) => {
 // READ - Return a single task by ID
 router.get('/tasks/:id', async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id).populate('project', 'name');
-    if (!task) return res.status(404).json({ error: 'Task not found' });
+    const task = await Task.findOne({ _id: req.params.id, owner: req.user._id }).populate('project', 'name');
+    if (!task) return res.status(404).json({ error: 'Task not found or you do not own this task' });
     res.json(task);
   } catch (err) {
     console.error('Error fetching task:', err);
@@ -145,15 +158,15 @@ router.get('/tasks/:id', async (req, res) => {
   }
 });
 
-// UPDATE - Single task by ID
+// UPDATE - Single task by ID (only if it belongs to the logged-in user)
 router.put('/tasks/:id', async (req, res) => {
   try {
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
+    const updatedTask = await Task.findOneAndUpdate(
+      { _id: req.params.id, owner: req.user._id },  // Ensure the task belongs to the user
       req.body,
       { new: true, runValidators: true }
     );
-    if (!updatedTask) return res.status(404).json({ error: 'Task not found' });
+    if (!updatedTask) return res.status(404).json({ error: 'Task not found or you do not own this task' });
     res.json(updatedTask);
   } catch (err) {
     console.error('Error updating task:', err);
@@ -161,11 +174,11 @@ router.put('/tasks/:id', async (req, res) => {
   }
 });
 
-// DELETE - Single task by ID
+// DELETE - Single task by ID (only if it belongs to the logged-in user)
 router.delete('/tasks/:id', async (req, res) => {
   try {
-    const deletedTask = await Task.findByIdAndDelete(req.params.id);
-    if (!deletedTask) return res.status(404).json({ error: 'Task not found' });
+    const deletedTask = await Task.findOneAndDelete({ _id: req.params.id, owner: req.user._id });
+    if (!deletedTask) return res.status(404).json({ error: 'Task not found or you do not own this task' });
     res.json({ message: 'Task deleted successfully' });
   } catch (err) {
     console.error('Error deleting task:', err);
