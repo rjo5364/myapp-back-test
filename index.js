@@ -16,7 +16,7 @@ const GitHubStrategy = require('passport-github2').Strategy;
 const app = express();
 app.use(express.json());
 
-// Important: Add trust proxy setting for Render.com
+// proxy setting for Render.com
 app.set('trust proxy', 1);
 
 // Middleware
@@ -51,7 +51,7 @@ mongoose.connection.on('disconnected', () => {
   console.log('MongoDB connection disconnected');
 });
 
-// Create session store using existing MongoDB connection
+// Creates session store using existing MongoDB connection
 const sessionStore = MongoStore.create({
   client: mongoose.connection.getClient(),
   collectionName: 'sessions',
@@ -133,7 +133,7 @@ app.get('/test-session', (req, res) => {
   });
 });
 
-// User schema
+// User schema for MongoDB Atlas
 const userSchema = new mongoose.Schema({
   socialId: String,
   name: String,
@@ -146,7 +146,7 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-// Google Strategy
+// Google OAuth 2.0 Strategy
 passport.use(
   new GoogleStrategy(
     {
@@ -181,7 +181,7 @@ passport.use(
   )
 );
 
-// GitHub Strategy
+// GitHub Oauth 2.0 Strategy
 passport.use(
   new GitHubStrategy(
     {
@@ -329,7 +329,7 @@ app.get('/logout', (req, res) => {
     });
   });
 });
-
+//API routes
 const projectTaskRouter = require('./projectTaskRoutes');
 app.use('/api', projectTaskRouter);
 

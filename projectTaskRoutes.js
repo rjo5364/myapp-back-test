@@ -4,6 +4,12 @@ const mongoose = require('mongoose');
 
 const Schema = mongoose.Schema;
 
+//The application  manages projects and tasks using MongoDB Atlas as the database. 
+// It defines two Mongoose schemas: Project and Task
+// Each project and task is associated with a user (owner) via a reference to the User's _id.
+//The id is important because on front end ui, this is the list for each schema is populated respectively
+//If the ID param is not used such as in Postman, all entries are returned regardless of ID
+
 // MongoDB Schema for Projects
 const projectSchema = new Schema({
   name: { type: String, required: true },
@@ -29,12 +35,12 @@ const taskSchema = new Schema({
 const Task = mongoose.model('Task', taskSchema);
 
 
-// CREATE a new project (with owner linked to authenticated user)
+// CREATE a new project 
 router.post('/projects', async (req, res) => {
   try {
     const project = new Project({
       ...req.body,
-      owner: req.user._id  // Attach the logged-in user's _id as the project owner
+      owner: req.user._id  
     });
     const savedProject = await project.save();
     res.status(201).json(savedProject);
@@ -44,10 +50,10 @@ router.post('/projects', async (req, res) => {
   }
 });
 
-// READ - Return all projects (filter by owner if user is authenticated, otherwise return all)
+// READ - Return all projects 
 router.get('/projects', async (req, res) => {
   try {
-    const filter = req.user ? { owner: req.user._id } : {};  // If user is authenticated, filter by owner
+    const filter = req.user ? { owner: req.user._id } : {};  
     const projects = await Project.find(filter);
     res.json(projects);
   } catch (err) {
@@ -68,11 +74,11 @@ router.get('/projects/:id', async (req, res) => {
   }
 });
 
-// UPDATE - Project by ID (only if it belongs to the logged-in user)
+// UPDATE - Project by ID 
 router.put('/projects/:id', async (req, res) => {
   try {
     const updatedProject = await Project.findOneAndUpdate(
-      { _id: req.params.id, owner: req.user._id },  // Ensure the project belongs to the user
+      { _id: req.params.id, owner: req.user._id },  
       req.body,
       { new: true, runValidators: true }
     );
@@ -98,7 +104,7 @@ router.delete('/projects/:id', async (req, res) => {
 });
 
 
-// CREATE a new task with project ID and owner (linked to authenticated user)
+// CREATE a new task with project id and owner 
 router.post('/tasks', async (req, res) => {
   try {
     const { project, name, description, duration, startDate, endDate } = req.body;
@@ -107,7 +113,7 @@ router.post('/tasks', async (req, res) => {
       return res.status(400).json({ error: 'Invalid project id' });
     }
 
-    // Check if the project belongs to the logged-in user
+    // Checking if the project belongs to the logged-in user
     const parentProject = await Project.findOne({ _id: project, owner: req.user._id });
     if (!parentProject) {
       return res.status(404).json({ error: 'Parent project not found or you do not own this project' });
@@ -120,7 +126,7 @@ router.post('/tasks', async (req, res) => {
       duration,
       startDate,
       endDate,
-      owner: req.user._id  // Attach logged-in user's _id as the task owner
+      owner: req.user._id  
     });
 
     const savedTask = await task.save();
@@ -131,12 +137,12 @@ router.post('/tasks', async (req, res) => {
   }
 });
 
-// READ all tasks (filter by owner if user is authenticated, otherwise return all tasks)
+// READ all tasks 
 router.get('/tasks', async (req, res) => {
   try {
-    const filter = req.user ? { owner: req.user._id } : {};  // If user is authenticated, filter by owner
+    const filter = req.user ? { owner: req.user._id } : {};  
     if (req.query.project) {
-      filter.project = req.query.project;  // Optional: filter by project ID
+      filter.project = req.query.project;  
     }
     const tasks = await Task.find(filter).populate('project', 'name');
     res.json(tasks);
@@ -162,7 +168,7 @@ router.get('/tasks/:id', async (req, res) => {
 router.put('/tasks/:id', async (req, res) => {
   try {
     const updatedTask = await Task.findOneAndUpdate(
-      { _id: req.params.id, owner: req.user._id },  // Ensure the task belongs to the user
+      { _id: req.params.id, owner: req.user._id }, 
       req.body,
       { new: true, runValidators: true }
     );
