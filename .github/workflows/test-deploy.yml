@@ -9,10 +9,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+      LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+      LINKEDIN_REDIRECT_URI: ${{ secrets.LINKEDIN_REDIRECT_URI }}
+      BASE_URL: ${{ secrets.BASE_URL }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
       MONGODB_URI: ${{ secrets.MONGODB_URI }}
-      USER_ID: ${{ secrets.USER_ID }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+      GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+      REACT_APP_BACKEND_URL: ${{ secrets.REACT_APP_BACKEND_URL }}
       PROJECT_ID: ${{ secrets.PROJECT_ID }}
       TASK_ID: ${{ secrets.TASK_ID }}
+      USER_ID: ${{ secrets.USER_ID }}
       MOCK_NAME: ${{ secrets.MOCK_NAME }}
       MOCK_EMAIL: ${{ secrets.MOCK_EMAIL }}
 
