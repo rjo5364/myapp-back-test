@@ -18,8 +18,8 @@ jobs:
       FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
       MONGODB_URI: ${{ secrets.MONGODB_URI }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-      GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
-      GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+      KEY_GITHUB_CLIENT_ID: ${{ secrets.KEY_GITHUB_CLIENT_ID }}
+      KEY_GITHUB_CLIENT_SECRET: ${{ secrets.KEY_GITHUB_CLIENT_SECRET }}
       REACT_APP_BACKEND_URL: ${{ secrets.REACT_APP_BACKEND_URL }}
       PROJECT_ID: ${{ secrets.PROJECT_ID }}
       TASK_ID: ${{ secrets.TASK_ID }}
@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3 
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
