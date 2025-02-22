@@ -3,7 +3,7 @@ name: Run Tests and Deploy to Render
 on:
   push:
     branches:
-      - master 
+      - master
 
 jobs:
   test:
@@ -27,9 +27,12 @@ jobs:
       MOCK_NAME: ${{ secrets.MOCK_NAME }}
       MOCK_EMAIL: ${{ secrets.MOCK_EMAIL }}
 
+    outputs:
+      deploy_allowed: ${{ steps.check_threshold.outputs.deploy_allowed }} 
+
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3 
+        uses: actions/checkout@v3
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -43,15 +46,12 @@ jobs:
       - name: Run Tests and Capture Results
         id: test_results
         run: |
-          # Run Jest tests and capture output in a file
           npx jest --json --outputFile=test-results.json || true
           
-          # Extract test summary
           TOTAL_TESTS=$(jq '.numTotalTests' test-results.json)
           PASSED_TESTS=$(jq '.numPassedTests' test-results.json)
           FAILED_TESTS=$(jq '.numFailedTests' test-results.json)
 
-          # Calculate pass percentage
           PASS_PERCENTAGE=$((100 * PASSED_TESTS / TOTAL_TESTS))
 
           echo "Total Tests: $TOTAL_TESTS"
@@ -59,25 +59,24 @@ jobs:
           echo "Failed Tests: $FAILED_TESTS"
           echo "Pass Percentage: $PASS_PERCENTAGE%"
 
-          # Store pass percentage for next step
           echo "PASS_PERCENTAGE=$PASS_PERCENTAGE" >> $GITHUB_ENV
 
       - name: Check Test Threshold
         id: check_threshold
         run: |
-          MINIMUM_PASS_PERCENT=80  # Set your threshold (e.g., 80%)
+          MINIMUM_PASS_PERCENT=80  # Adjust threshold as needed
           
           if [ "$PASS_PERCENTAGE" -ge "$MINIMUM_PASS_PERCENT" ]; then
             echo "Tests passed threshold, proceeding with deployment."
-            echo "DEPLOY_ALLOWED=true" >> $GITHUB_ENV
+            echo "deploy_allowed=true" >> $GITHUB_OUTPUT
           else
             echo "Tests failed threshold, skipping deployment."
-            echo "DEPLOY_ALLOWED=false" >> $GITHUB_ENV
+            echo "deploy_allowed=false" >> $GITHUB_OUTPUT
           fi
 
   deploy:
     needs: test
-    if: env.DEPLOY_ALLOWED == 'true'  # Only deploy if the test threshold is met
+    if: needs.test.outputs.deploy_allowed == 'true'  # Correct reference
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Deploy on Render
